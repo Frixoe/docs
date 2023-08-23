@@ -38,24 +38,16 @@ Edit `/etc/sysctl.conf` to include the following:
 fs.file-max=262144
 ```
 
-### Create _zetachain_ User Account
-
-We recommend running ZetaChain binary files with a user account rather than as
-root.
-
-```bash
-useradd -m -s /bin/bash zetachain
-```
-
 ### Create ZetaChain Directory Structure
+We will be creating a dynamic user to run the binary.
 
 This is needed to store ZetaChain binary and configuration files.
 
 ```bash
-sudo su zetachain
-mkdir -p /home/zetachain/.zetacored/bin
-mkdir /home/zetachain/.zetacored/config
+sudo -s
+mkdir -p /var/lib/private/zetachain/config
 ```
+> Please note that the directory will be properly accessible only after running `sudo -s`.f
 
 ### Download and Install the zetacored binary
 
@@ -85,10 +77,10 @@ ZetaChain configuration files can be downloaded from the
 Install it as follows:
 
 ```
-/home/zetachain/.zetacored/config/app.toml
-/home/zetachain/.zetacored/config/client.toml
-/home/zetachain/.zetacored/config/config.toml
-/home/zetachain/.zetacored/config/genesis.json
+/var/lib/private/zetachain/config/app.toml
+/var/lib/private/zetachain/config/client.toml
+/var/lib/private/zetachain/config/config.toml
+/var/lib/private/zetachain/config/genesis.json
 ```
 
 ### Create a Systemd Unit File
@@ -99,18 +91,38 @@ logs. You can create a Systemd unit file at the following location
 
 ```bash
 [Unit]
-Description=Zetacored Service
-After=multi-user.target
-StartLimitIntervalSec=0
+Description=Zetacored
+
+[Service]
+User=zetachain
+Group=zetachain
+DynamicUser=true
+Type=simple
+StateDirectory=zetachain
+WorkingDirectory=/var/lib/zetachain
+CapabilityBoundingSet=
+ExecStart=/usr/local/bin/zetacored start --home /var/lib/zetachain --log_format json  --log_level info --moniker <YOUR_NODE_NAME_HERE>
+Restart=on-failure
+RestartSec=120
+
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+ProtectProc=invisible
+PrivateDevices=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+PrivateUsers=yes
+ProtectHome=yes
+
 [Install]
 WantedBy=multi-user.target
-[Service]
-Type=simple
-Restart=always
-RestartSec=90
-User=zetachain
-LimitNOFILE=262144
-ExecStart=zetacored start --home /home/zetachain/.zetacored/ --log_format json  --log_level info --moniker <YOUR_NODE_NAME_HERE>
 ```
 
 Then start the service with `systemctl start zetacored`.
@@ -178,7 +190,7 @@ $ curl -s http://52.3.196.71:26657/block | jq -r '.result.block.header.height + 
 ```
 
 Use the return values to edit the following variables in
-`/home/zetachain/.zetacored/config/config.toml`
+`/var/lib/private/zetachain/config/config.toml`
 
 ```bash
 [statesync]
